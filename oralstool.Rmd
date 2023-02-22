@@ -39,15 +39,6 @@ We tested the possible scores, defined by different prevalence thresholds, as fo
 305 oral species from MetaPhlAn 3 usable to compute the oral-to-gut-introgression score.
 https://docs.google.com/spreadsheets/d/1RqFe6DsUBhpI_-EpK94jViz8duPU_BiT/edit#gid=698747047
 
-## all stool
-
-```{r}
-stool <- sampleMetadata %>%
-  filter(age_category %in% (c("adult", "senior","schoolage"))) %>%
-  filter(body_site == "stool") %>%
-  returnSamples("relative_abundance", rownames = "long")
-```
-
 ## get oral species list from Paul
 
 ```{r}
@@ -55,11 +46,18 @@ library(readr)
 oral <- read_csv("/mnt/STORE1/bighome/haoyanzh/oralstool/species_list_at_1.xlsx - Foglio 1 - species_list_at_0.01 (1).csv", show_col_types = FALSE) %>%
   pull("species_list_at_0.01")
 ```
-
+## get all stool microbiome from studies that reported smoking status in cMD 
+```{r}
+smoking <- sampleMetadata %>%
+  filter(age_category %in% (c("adult", "senior","schoolage"))) %>%
+  filter(body_site == "stool") %>%
+  filter(!is.na(smoker)) %>%
+  returnSamples("relative_abundance", rownames = "long")
+  
 ## get introgression score
 ```{r}
 oralScore <- function(SE, oralvec) colSums(assay(SE)[rownames(SE) %in% oralvec, ])
-oralScore(stool,oral)
+oralScore(smoking,oral)
 ```
 
 
@@ -67,20 +65,6 @@ oralScore(stool,oral)
 lm(score=age+smoking status)
 Do overall first; and then try on each smoking dataset then meta-analysis 
 
-### 1. pooled regression
-```{r}
-lm(oralScore(stool,oral)~stool$age+stool$smoker)
-```
-
-```{r}
-#double check- studies that report smoker variable only- lm outcomes are the same
-
-smoking <- sampleMetadata %>%
-  filter(age_category %in% (c("adult", "senior","schoolage"))) %>%
-  filter(body_site == "stool") %>%
-  filter(!is.na(smoker)) %>%
-  returnSamples("relative_abundance", rownames = "long")
-```
 ###  1. pooled regression including/excluding age, study as covariate
 
 ```{r}
