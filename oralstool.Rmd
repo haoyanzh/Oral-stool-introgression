@@ -1,0 +1,152 @@
+---
+title: "oralstool"
+output: html_document
+date: "2022-08-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Hypotheiss:
+Smoking increases the rate of transmission from oral to gut by favoring bacteria that can survive in gut (aneorobic, acid tolerant). 
+literature already published species that can be transferred, so we can look at characteristics (physiology)
+we can also test the hypothesis 
+1. which oral bacteria are present in the gut, which are not?
+2. what are the physiological difference? 
+
+## Clinical implication: find high risk oral bacteria.  
+knowing physiology can know what activity can change the prev of bacteria in oral.
+
+
+```{r}
+library(curatedMetagenomicData)
+library(dplyr)
+library(TypicalMicrobiomeSignatures)
+```
+
+#oral introgression score from Paolo
+https://github.com/waldronlab/curatedMetagenomicDataAnalyses/tree/main/cMD3_paper_analyses/oral_introgression
+
+DefinitionComputation and validation of the “oral- too- gut- introgression” scores
+To define an oral-to-gut introgression score, we queried From cMD 3 by all the samples which are derived from the human oral cavity (“body_site == oralcavity”) (N = 857). 
+We then queried cMD 3 for all the gut microbiomes (“body_site == stool”) from adult individuals at baseline (“age_category in [adult, senior, schoolage]” & “days_from_first_collection” in [0.0, NA]”) which are enrolled due to the diagnosis for a specific diseases or are enrolled specifically as controls (“study_condition == control”), and consist of populations of at least 100 individuals (N datasets = 25, N samples = 6,891). 
+We then queried cMD 3 for all the gut microbiomes from adult individuals at baseline, who have received a diagnosis for a specific disease (“study_condition != control”). We considered in this case only populations of at least 5 individuals (N datasets = 48, N samples = 3,632). 
+To define an oral species, we considered the following prevalence threshold in the set of oral samples: 1%, 5%, 10%, 20%, 30%, 40%, 50%. For each threshold we computed the list of oral species by MetaPhlAn 3 and we define an oral-to-gut introgression score as the sum of the relative contribution of these oral species in a stool sample. 
+
+We tested the possible scores, defined by different prevalence thresholds, as follows: the average score is computed in each population from the set of 6,891 healthy individuals, and from the set of 3,632 diseased individuals microbiomes. The two distributions of per-dataset score averages are compared, via Mann-Whitney test and evaluating AUROC of the score predicting the diseased state of each population. In addition, we looked at the total number of individuals showing a positive value of score in the overall set of 10,523, trying to maximize it. We choose the score at 1% as a prevalence threshold (N oral species that define the score: 305), as it showed statistical significance (Mann-Whitney P < 0.05), the highest AUROC (0.80) and showed a median percentage of individuals having a positive score greater than 80%. Based on the same set of species, we also defined an additional score as the Shannon entropy of these species in a stool sample.
+
+305 oral species from MetaPhlAn 3 usable to compute the oral-to-gut-introgression score.
+https://docs.google.com/spreadsheets/d/1RqFe6DsUBhpI_-EpK94jViz8duPU_BiT/edit#gid=698747047
+
+## all stool
+
+```{r}
+stool <- sampleMetadata %>%
+  filter(age_category %in% (c("adult", "senior","schoolage"))) %>%
+  filter(body_site == "stool") %>%
+  returnSamples("relative_abundance", rownames = "long")
+```
+
+## get oral species list from Paul
+
+```{r}
+library(readr)
+oral <- read_csv("/mnt/STORE1/bighome/haoyanzh/oralstool/species_list_at_1.xlsx - Foglio 1 - species_list_at_0.01 (1).csv", show_col_types = FALSE) %>%
+  pull("species_list_at_0.01")
+```
+
+## get introgression score
+```{r}
+oralScore <- function(SE, oralvec) colSums(assay(SE)[rownames(SE) %in% oralvec, ])
+oralScore(stool,oral)
+```
+
+
+## regression
+lm(score=age+smoking status)
+Do overall first; and then try on each smoking dataset then meta-analysis 
+
+### 1. pooled regression
+```{r}
+lm(oralScore(stool,oral)~stool$age+stool$smoker)
+```
+
+```{r}
+#double check- studies that report smoker variable only- lm outcomes are the same
+
+smoking <- sampleMetadata %>%
+  filter(age_category %in% (c("adult", "senior","schoolage"))) %>%
+  filter(body_site == "stool") %>%
+  filter(!is.na(smoker)) %>%
+  returnSamples("relative_abundance", rownames = "long")
+```
+###  1. pooled regression including/excluding age, study as covariate
+
+```{r}
+a<-lm(oralScore(smoking,oral)~smoking$age+smoking$smoker+smoking$study_name)
+summary(a)
+
+b<-lm(oralScore(smoking,oral)~smoking$smoker)
+summary(b)
+```
+
+### 2. regression by each smoking dataset
+
+11 studies reported smoke status
+
+``` {r}
+table(colData(smoking)$study_name)
+```
+
+### studies not run
+KaurK_2020, LiJ_2017, RaymondF_2016, ThomasAM_2018a- all smoker==no;
+JieZ_2017, SchirmerM_2016 - all age == NA
+
+### studies run individually 
+```{r}
+JieZ_2017<-data.frame(colData(smoking)) %>% filter(study_name=='JieZ_2017')
+Jiez_2017_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='JieZ_2017'])
+# Jiez- all age missing
+summary(lm(Jiez_2017_score~JieZ_2017$smoker))
+```
+
+```{r}
+KeohaneDM_2020<-data.frame(colData(smoking)) %>% filter(study_name=='KeohaneDM_2020')
+KeohaneDM_2020_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='KeohaneDM_2020'])
+summary(lm(KeohaneDM_2020_score~KeohaneDM_2020$age+KeohaneDM_2020$smoker))
+```
+
+```{r}
+SankaranarayananK_2015<-data.frame(colData(smoking)) %>% filter(study_name=='SankaranarayananK_2015')
+SankaranarayananK_2015_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='SankaranarayananK_2015'])
+summary(lm(SankaranarayananK_2015_score~SankaranarayananK_2015$age+SankaranarayananK_2015$smoker))
+```
+
+```{r}
+SchirmerM_2016<-data.frame(colData(smoking)) %>% filter(study_name=='SchirmerM_2016')
+SchirmerM_2016_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='SchirmerM_2016'])
+#all missing age
+summary(lm(SchirmerM_2016_score~SchirmerM_2016$smoker))
+```
+
+```{r}
+XieH_2016<-data.frame(colData(smoking)) %>% filter(study_name=='XieH_2016')
+XieH_2016_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='XieH_2016'])
+summary(lm(XieH_2016_score~XieH_2016$age+XieH_2016$smoker))
+```
+
+```{r}
+YuJ_2015<-data.frame(colData(smoking)) %>% filter(study_name=='YuJ_2015')
+YuJ_2015_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='YuJ_2015'])
+summary(lm(YuJ_2015_score~YuJ_2015$age+YuJ_2015$smoker))
+```
+
+```{r}
+ZhuF_2020<-data.frame(colData(smoking)) %>% filter(study_name=='ZhuF_2020')
+ZhuF_2020_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='ZhuF_2020'])
+summary(lm(ZhuF_2020_score~ZhuF_2020$age+ZhuF_2020$smoker))
+```
+
+
+
