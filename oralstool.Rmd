@@ -88,7 +88,7 @@ Do overall first; and then try on each smoking dataset then meta-analysis
 a <-  lm(oralscore ~ age + smoker + study_name, data = pdata)
 summary(a)
 
-b <- lm(oralscore ~ smoker, data = pdata)
+b <- lm(oralscore ~ age + smoker, data = pdata)
 summary(b)
 ```
 
@@ -116,19 +116,11 @@ JieZ_2017, SchirmerM_2016 - all age == NA
 ### studies run individually 
 
 ```{r}
-# Jiez- all age missing
-lm(oralscore ~ smoker, data = filter(pdata, study_name == "JieZ_2017")) %>%
-  summary()
+studies_without_age <- c("JieZ_2017","SchirmerM_2016")
+studies_with_age <- c("KeohaneDM_2020", "SankaranarayananK_2015","XieH_2016","YuJ_2015","ZhuF_2020")
 ```
 
-```{r}
-summary(lm(oralscore ~ smoker + age, data = filter(pdata, study_name=='KeohaneDM_2020')))
-```
-
-```{r}
-studies_without_age <- c("JieZ_2017")
-studies_with_age <- c("KeohaneDM_2020", "SankaranarayananK_2015")
-```
+If study has age as a continuous variable
 
 ```{r}
 for (study in studies_with_age){
@@ -136,42 +128,12 @@ for (study in studies_with_age){
   print(summary(lm(oralscore ~ age + smoker, data = filter(pdata, study_name == study))))
 }
 ```
+If study has age as a categorical variable only
 
 ```{r}
-library(nlme)
-
+for (study in studies_without_age){
+  print(study)
+  print(summary(lm(oralscore ~ smoker +  age_category, data = filter(pdata, study_name == study))))
+}
 ```
-
-```{r}
-SankaranarayananK_2015<-data.frame(colData(smoking)) %>% filter(study_name=='SankaranarayananK_2015')
-SankaranarayananK_2015_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='SankaranarayananK_2015'])
-summary(lm(SankaranarayananK_2015_score~SankaranarayananK_2015$age+SankaranarayananK_2015$smoker))
-```
-
-```{r}
-SchirmerM_2016<-data.frame(colData(smoking)) %>% filter(study_name=='SchirmerM_2016')
-SchirmerM_2016_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='SchirmerM_2016'])
-#all missing age
-summary(lm(SchirmerM_2016_score~SchirmerM_2016$smoker))
-```
-
-```{r}
-XieH_2016<-data.frame(colData(smoking)) %>% filter(study_name=='XieH_2016')
-XieH_2016_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='XieH_2016'])
-summary(lm(XieH_2016_score~XieH_2016$age+XieH_2016$smoker))
-```
-
-```{r}
-YuJ_2015<-data.frame(colData(smoking)) %>% filter(study_name=='YuJ_2015')
-YuJ_2015_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='YuJ_2015'])
-summary(lm(YuJ_2015_score~YuJ_2015$age+YuJ_2015$smoker))
-```
-
-```{r}
-ZhuF_2020<-data.frame(colData(smoking)) %>% filter(study_name=='ZhuF_2020')
-ZhuF_2020_score=colSums(assay(smoking)[rownames(smoking) %in% oral,][,smoking$study_name=='ZhuF_2020'])
-summary(lm(ZhuF_2020_score~ZhuF_2020$age+ZhuF_2020$smoker))
-```
-
-
 
